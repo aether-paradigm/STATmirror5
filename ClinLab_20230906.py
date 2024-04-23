@@ -261,7 +261,7 @@ with tab2:
             summary = cleandata[selected_descr_var].value_counts()
             percents_summary = cleandata[selected_descr_var].value_counts(normalize=True).mul(100).round(1).astype(str) + '%'
             cat_summary = pd.concat([summary,percents_summary], axis=1, keys=['Counts', 'Proportions'])
-            st.dataframe (cat_summary)
+            st.table (cat_summary)
 
         st.header ("Which of my continuous variables are normally distributed?")
         st.caption("Test conducted using Shapiro-Wilk test for continuous variables only.")
@@ -485,7 +485,7 @@ with tab5:
    pass
 
    ### Removing rows with NaN - to remove drop NA
-   df_filter_droppedna = df_filter.dropna(axis='rows', how= 'all') #
+   df_filter_droppedna = df_filter.dropna(axis='rows', how= 'any') #
    st.write('NAs are automatically removed here. Number of datapoints retained after removing NAs:', df_filter_droppedna.shape[0], 'of', df_filter.shape[0])
 
    if len(filter) >= 2:
@@ -502,7 +502,7 @@ with tab5:
            elif corrtype == 'spearman':
             df_corr = spearman_calculate_corr(df_filter_droppedna)
            
-           st.dataframe(df_corr)
+           st.table(df_corr)
 
 
            mask = np.zeros_like(df_corr2, dtype = float)
@@ -520,7 +520,7 @@ with tab5:
            elif corrtype == 'spearman':
             df_pval = spearman_calculate_pvalues(df_filter_droppedna)
            
-           st.dataframe(df_pval)
+           st.table(df_pval)
 
        else:
            st.write('Click to start analysis')
