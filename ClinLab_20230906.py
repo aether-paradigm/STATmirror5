@@ -12,6 +12,7 @@ import seaborn as sns
 import researchpy as rp
 import csv
 import plotly.express as px
+import scikit_posthocs as sp
 import chart_studio.plotly as pxchart
 import numpy as np
 from sklearn import linear_model, metrics
@@ -36,7 +37,6 @@ from scipy.stats import chi2_contingency
 from scipy.stats import chi2
 from scipy.stats import contingency
 from scipy.stats.contingency import relative_risk
-import scikit_posthocs as sp
 import math
 from sigfig import round
 import random
@@ -55,92 +55,117 @@ tab6, tab2, tab3, tab4, tab5 = st.tabs(["Guide","Descriptive and Normality Testi
 
 with tab6:
     
- 
+
 
     # pdf1 = Image.open('C:/Users/carina.t/Dropbox/hello_world/20230810 front page annotations1024_1.png')
     pdf1 = Image.open('images/20230810 front page annotations1024_1.png')
              # Display the image
-    st.image(pdf1, use_column_width=False)
+    st.image(pdf1, use_container_width=False)
     
     # pdf2 = Image.open('C:/Users/carina.t/Dropbox/hello_world/20230810 front page annotations1024_2.png')
     pdf2 = Image.open('images/20230810 front page annotations1024_2.png')
              # Display the image
-    st.image(pdf2, use_column_width=False)
+    st.image(pdf2, use_container_width=False)
 
     # pdf3 = Image.open('C:/Users/carina.t/Dropbox/hello_world/20230810 front page annotations1024_3.png')
     pdf3 = Image.open('images/20230810 front page annotations1024_3.png')
              # Display the image
-    st.image(pdf3, use_column_width=False)
+    st.image(pdf3, use_container_width=False)
+    st.write('For any new functions inclusion, bugs or technical issues, please contact me at carina.t@nus.edu.sg!')
+
+
 
 with st.sidebar:
 
 
-   st.header('Data Uploader')
-   st.write('To use this website, prepare a .csv or .xlsx file according to tutorial.')
-
-   if st.checkbox("Use Example Data", value=True):
-    st.write ("Load Completed: Currently working with Example Data")
+    st.header('Data Uploader')
+    st.write('To use this website, prepare a .csv OR .xls file.')
     
-    df = pd.read_csv('Demo_Dataset_For_Clinlab.csv')
+    st.title("File Upload Example")
     
-    df['event']= np.random.choice(['Yes','No'], len(df), p=[.7,.3])
-    df['health_status']= np.random.choice(['Healthy','At Risk'], len(df), p=[.6,.4])
-
-   
-   else: 
-    cleaningfile = st.file_uploader('')
-    if cleaningfile is not None:
-        filename=cleaningfile.name
-        
-        if ".csv" in filename:
-            df = pd.read_csv(cleaningfile)
-        elif ".xls" in filename:    
-            df = pd.read_excel(cleaningfile)
-        else: 
-            st.write('Please provide CSV or Excel files only.')
-
+    if st.checkbox("Use Example Data", value=True):
+        st.write("Load Completed: Currently working with Example Data")
+    
+        df = pd.read_csv('Demo_Dataset_For_Clinlab.csv')
+    
+        # Adding Random Data
+        df['event'] = np.random.choice(['Yes', 'No'], len(df), p=[0.7, 0.3])
+        df['health_status'] = np.random.choice(['Healthy', 'At Risk'], len(df), p=[0.6, 0.4])
+    
     else:
-        st.stop()
+        cleaningfile = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xls", "xlsx"])
+        
+        if cleaningfile is not None:
+            filename = cleaningfile.name
+            
+            try:
+                if filename.endswith(".csv"):
+                    df = pd.read_csv(cleaningfile)
+                elif filename.endswith((".xls", ".xlsx")):
+                    # Read the Excel file to get sheet names
+                    excel_file = pd.ExcelFile(cleaningfile, engine='openpyxl' if filename.endswith(".xlsx") else 'xlrd')
+                    
+                    # Get sheet names
+                    sheet_names = excel_file.sheet_names
+                    
+                    # Let the user select the sheet
+                    selected_sheet = st.selectbox("Select a sheet", sheet_names)
+                    
+                    # Load the selected sheet into a dataframe
+                    df = pd.read_excel(cleaningfile, sheet_name=selected_sheet, engine='openpyxl' if filename.endswith(".xlsx") else 'xlrd')
+                else:
+                    st.write("Please provide CSV or Excel files only.")
+                    st.stop()
+                
+                st.write("File loaded successfully!")
+                st.dataframe(df.head())  # Display the first few rows
+    
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+    
+        else:
+            st.stop()
+
 
    #filter dataframe section
 
-   st.header("Data Filter")
-   st.write(
+    st.header("Data Filter")
+    st.write(
        """Use this data filter if you're only analysing a subgroup; this filter is applied to all tests in the tabs on the right
        """
-   )
-
-   def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    )
+    
+    def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
        modify = st.checkbox("Do you need to filter your data?")
        st.caption ("Leave unchecked to use whole dataset")
-
+    
        if not modify:
            return df
-
+    
        #make a copy for the dataframe so it would not affect the original df
        df = df.copy()
-
-   # Try to convert datetimes into a standard format (datetime, no timezone)
+    
+    # Try to convert datetimes into a standard format (datetime, no timezone)
        for col in df.columns:
-
+    
            if is_object_dtype(df[col]):
                try:
                    df[col] = pd.to_datetime(df[col])
                except Exception:
                    pass
-
+    
            if is_datetime64_any_dtype(df[col]):
                df[col] = df[col].dt.tz_localize(None)
-
-
+    
+    
        modification_container = st.container()
-
+    
        with modification_container:
            to_filter_columns = st.multiselect("Filter dataframe on", df.columns)
-
+    
            for column in to_filter_columns:
                left, right = st.columns((1, 20))
-
+    
                if is_datetime64_any_dtype(df[column]):
                    user_date_input = right.date_input(
                        f"Values for {column}",
@@ -161,7 +186,7 @@ with st.sidebar:
                        default=list(df[column].unique()),
                    )
                    df = df[df[column].isin(user_cat_input)]
-
+    
                elif is_numeric_dtype(df[column]):
                    _min = float(df[column].min())
                    _max = float(df[column].max())
@@ -181,40 +206,40 @@ with st.sidebar:
                    )
                    if user_text_input:
                        df = df[df[column].astype(str).str.contains(user_text_input)]
-
+    
        return df
-
-   category_features = []
-   threshold = 5
-   for each in df.columns:
+    
+    category_features = []
+    threshold = 10
+    for each in df.columns:
        if df[each].nunique() < threshold:
           category_features.append(each)
-
-   for each in category_features:
+    
+    for each in category_features:
        df[each] = df[each].astype('category')
-
-   cleandata = filter_dataframe(df)
-   st.dataframe(cleandata)
-
-   def convert_df(df):
+    
+    cleandata = filter_dataframe(df)
+    st.dataframe(cleandata)
+    
+    def convert_df(df):
        # IMPORTANT: Cache the conversion to prevent computation on every rerun
        return df.to_csv().encode('utf-8')
-
-   csv = convert_df(cleandata)
-
-   st.download_button(
+    
+    csv = convert_df(cleandata)
+    
+    st.download_button(
        label="Download data as CSV",
        data=csv,
        file_name='filtered_dataframe.csv',
        mime='text/csv',
-   )
-
-
-
+    )
+    
+    
+    
 
 with tab2:
 
-        st.header('Histogram and Descriptive Statistics')
+        st.header('Histogram for Continuous Variables')
 
         st.caption ("A histogram helps you to visualise the distribution of your data; change the number of bins to optimise")
 
@@ -248,10 +273,10 @@ with tab2:
             mime="application/octet-stream"
             )
 
+        st.header('Descriptive Statistics for all Variables')
         #descriptive statistics if numeric data:
-        selected_descr_var = st.selectbox('Which Variable would you like to generate Descriptive Statistics for?', cleandata.columns)
-
-        #descriptive statistics if numeric data:
+        selected_descr_var = st.selectbox('Which variable would you like to generate Descriptive Statistics for?', cleandata.columns)
+    
         if is_numeric_dtype(cleandata[selected_descr_var]):
             description = cleandata[selected_descr_var].describe()
             st.write (description)
@@ -293,8 +318,6 @@ with tab2:
 
         st.caption ('When p-value of Shapiro-Wilk test is < 0.05:  \n - This column of data is not normally distributed.  \n - Non-parametric tests are recommended for downstream analysis.  ')
         st.caption ('When p-value of Shapiro-Wilk test is > 0.05: \n - Data has a normal distribution and parametric tests can be used. ')
-
-
 
 
 with tab3:
@@ -602,7 +625,7 @@ with tab4:
      st.caption("If analysis takes very long to load, try removing the variables selected in the Correlation tab.")
 
      st.header("Unpaired T-Test for Continuous Variables")
-     st.caption ("T-test is parametric. Mann-Whitney U test is non-parametric. Both test the difference between TWO groups. Note that T-test performed does not assume equal population variance.")
+     st.caption ("T-test is parametric. Mann-Whitney U test is non-parametric. Both test the difference between TWO independent groups. Note that T-test performed does not assume equal population variance.")
 
      selected_var = st.selectbox('What is the variable to be tested? Note that this has to be a continuous variable. ', scatters_df._get_numeric_data().columns)
      selected_categorical_var = st.selectbox('What is the variable used to separate the groups? ', scatters_df.select_dtypes(exclude=["number"]).columns )
@@ -643,7 +666,7 @@ with tab4:
 
 
      st.header("Paired T-Test for Continuous Variables")
-     st.caption ("Paired T-Test is parametric. Wilcoxon Signed Rank test is non-parametric. Both test the difference between TWO groups. \n Zero-differences between two pairs for Wilcoxon Rank Sum test would be discarded.")
+     st.caption ("Paired T-Test is parametric. Wilcoxon Signed Rank test is non-parametric. Both test the difference between TWO dependent groups. \n Zero-differences between two pairs for Wilcoxon Rank Sum test would be discarded.")
 
      paired_selected_var = st.selectbox('What is the test group? (eg. Post-Treatment) ', scatters_df._get_numeric_data().columns)
 
@@ -694,7 +717,7 @@ with tab4:
              st.write("You selected: Kruskal-Wallis H-test")
 
          selected_var1 = st.selectbox('What is the variable to be tested? Note that this has to be a continuous variable.', scatters_df._get_numeric_data().columns)
-         selected_categorical_var1 = st.selectbox('What is the group used to separate the variable selected?', scatters_df.select_dtypes(exclude=["number"]).columns)
+         selected_categorical_var1 = st.selectbox('What is the variable used to separate the groups?', scatters_df.select_dtypes(exclude=["number"]).columns)
          pop = list(set(scatters_df[selected_categorical_var1]))
 
          dataframe_filter3 = scatters_df[[selected_var1,selected_categorical_var1]]
@@ -710,7 +733,7 @@ with tab4:
                 
          if len(to_one_way) > 2:
             if anovatype == 'One-way ANOVA':
-
+                #st.write('test1')
                 _, pnorm_one = f_oneway( *to_one_way.values())
                 if pnorm_one < 0.0001:
                     pnorm_one = "<0.0001"
@@ -718,9 +741,7 @@ with tab4:
                 else:
                     pnorm_one = round(pnorm_one,5)
                 st.write(f'One-way Anova p value: {pnorm_one}')
-                
-                
-
+                    
             elif anovatype == 'Kruskal-Wallis H-test':
                  _, pnorm_kw = stats.kruskal( *to_one_way.values())
                  if pnorm_kw < 0.0001:
@@ -735,44 +756,51 @@ with tab4:
          elif len(to_one_way) == 2:
 
             if anovatype == 'One-way ANOVA':
+                #st.write('test1')
                 _, pnorm_one = f_oneway( *to_one_way.values())
                 if pnorm_one < 0.0001:
                     pnorm_one = "<0.0001"
+                    
                 else:
                     pnorm_one = round(pnorm_one,5)
                 st.write(f'T-test p value: {pnorm_one}')
                 st.caption(f'NOTICE: As <{selected_var1}> have less than two groupings when grouped by <{selected_categorical_var1}>, T-test is done instead of ANOVA. ')
 
             elif anovatype == 'Kruskal-Wallis H-test':
-                _, pnorm_kw = stats.kruskal( *to_one_way.values())
+                _, pnorm_kw = stats.mannwhitneyu( *to_one_way.values())
                 if pnorm_kw < 0.0001:
                     pnorm_kw = "<0.0001"
                    
                 else:
                     pnorm_kw = round(pnorm_kw,5)
 
-                st.write(f'Mann Whitney p value: {pnorm_kw}')
-                st.caption('If p-value < 0.05, please filter the grouping variable (using Filter Dataframe on the left) to TWO groups to conduct a set of pairwise comparisons to determine which groups are significantly different from the other. ')
-                st.caption(f'NOTICE: As <{selected_var1}> have less than two groupings when grouped by <{selected_categorical_var1}>, Mann Whitney U Test is done instead of Kruskal-Wallis H-test. ')
+                st.write(f'Mann Whitney U Test p value: {pnorm_kw}')
+                st.caption(f'NOTICE: As <{selected_var1}> have less than two groupings when grouped by <{selected_categorical_var1}>, Mann Whitney U Test is done instead of ANOVA. ')
          else:
             st.write(f'NULL: Selected variable <{selected_var1}> have less than two groupings when grouped by <{selected_categorical_var1}>.')
             #st.write('test4')
 
-         st.caption('If p-value < 0.05, please proceed with post-hoc test to conduct a set of pairwise comparisons to determine which groups are significantly different from the other. ')
-                
+
+         st.write('If p-value < 0.05, please proceed with post-hoc test to determine which groups are significantly different from the other. ')
          if st.checkbox('Would you like to do a Post-hoc Test?'):
              
              if anovatype == 'One-way ANOVA':
-                test100 = sp.posthoc_ttest(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1, p_adjust = 'bonferroni')
+                #test100 = sp.posthoc_ttest(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1, p_adjust = 'bonferroni')
+                test100 = sp.posthoc_tukey(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1)
+                st.write(" ")
+                st.write(" ")
+                st.write("p-values of Post-hoc Tukey's test - with Multiple Test Correction - Bonferroni:")
+             
 
              elif anovatype == 'Kruskal-Wallis H-test':
-                test100 = sp.posthoc_mannwhitney(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1, p_adjust = 'bonferroni')
+                #test100 = sp.posthoc_mannwhitney(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1, p_adjust = 'bonferroni')
+                test100 = sp.posthoc_dunn(dataframe_filter4,val_col = selected_var1, group_col = selected_categorical_var1, p_adjust = 'bonferroni')
+                st.write(" ")
+                st.write(" ")
+                st.write("p-values of Post-hoc Dunn's test - with Multiple Test Correction - Bonferroni:")
 
-             st.write(" ")
-             st.write(" ")
-             st.write("p-values of Post-hoc test - with Multiple Test Correction - Bonferroni:")
+
              st.write(test100)
-
 
          else:
              st.write('Click to start analysis')
@@ -826,7 +854,7 @@ with tab4:
          
          image = Image.open('images/Relative_Risk_Odds_Ratio_Picture.png')
              # Display the image
-         st.image(image, caption='Relative Risk Formula', use_column_width=True)
+         st.image(image, caption='Relative Risk and Odds Ratio Formula', use_column_width=True)
 
          
 
@@ -850,7 +878,7 @@ with tab4:
 
          st.write(" ")
          if independent_var in variables2:
-            selected_pop_case = st.selectbox('Which is the value that represents that event did happened? Eg. Positive for Disease', pop_set2)
+            selected_pop_case = st.selectbox('Which is the value that represents that event did happen? Eg. Positive for Disease', pop_set2)
 
 
             dataframe_filter10 = scatters_df[[independent_var,dependent_var]]
@@ -948,5 +976,3 @@ with tab4:
          st.write(" ")
          
          st.write(f'Odds Ratio: {odds_ratio_result}  \n Confidence Interval (95%):   Low - {low_conf_int_odd}  ; High - {high_conf_int_odd}')
-
-
